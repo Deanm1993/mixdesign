@@ -1,0 +1,7 @@
+﻿{
+  "name": "TfNSW R116 DGA14",
+  "sieves_mm": [19.0, 13.2, 9.5, 6.7, 4.75, 2.36, 0.6, 0.3, 0.15, 0.075],
+  "lower": [100, 90, 64, 46, 36, 24, 12, 8, 5, 3],
+  "upper": [100, 100, 80, 64, 52, 38, 24, 18, 13, 8],
+  "notes": "Indicative values for MVP; verify against the latest TfNSW R116 table for DGA14. Percentages are % passing."
+}

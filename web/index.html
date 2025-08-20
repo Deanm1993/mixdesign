@@ -1,0 +1,194 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asphalt Mix Optimiser (TfNSW R116 DGA14)</title>
+    
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.0.0/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/javascript-lp-solver/prod/solver.js"></script>
+    
+    <!-- Local Resources -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <meta name="description" content="Asphalt mix design optimisation tool for TfNSW R116 DGA14 specification">
+</head>
+<body>
+    <header>
+        <h1>Asphalt Mix Optimiser</h1>
+        <p class="subtitle">MVP for DGA14 per TfNSW R116 Specification</p>
+    </header>
+
+    <main>
+        <section id="project-section">
+            <h2>Project & Specification</h2>
+            <div class="form-group">
+                <label for="projectName">Project Name:</label>
+                <input type="text" id="projectName" placeholder="Enter project name">
+            </div>
+            <div class="form-group">
+                <label for="targetBinder">Target Binder % (by mass of total mix):</label>
+                <input type="number" id="targetBinder" min="3" max="7" step="0.1" value="5.0">
+                <span class="hint">Typical range: 4.5-6.0% for DGA14</span>
+            </div>
+            <button id="loadSampleBtn" class="secondary-btn">Load Sample Scenario</button>
+        </section>
+
+        <section id="volumetric-section">
+            <details>
+                <summary>Volumetric Inputs (Optional/Advanced)</summary>
+                <div class="form-group">
+                    <label for="binderSG">Binder Specific Gravity (Gb):</label>
+                    <input type="number" id="binderSG" min="0.9" max="1.2" step="0.01" value="1.03">
+                    <span class="hint">Default: 1.03</span>
+                </div>
+                <div class="form-group">
+                    <label for="mixSG">Bulk Specific Gravity of Compacted Mix (Gmb):</label>
+                    <input type="number" id="mixSG" min="2.0" max="3.0" step="0.001" placeholder="Optional">
+                    <span class="hint">Required for air void calculations</span>
+                </div>
+                <div class="form-group">
+                    <label for="defaultAggSG">Default Aggregate Bulk Specific Gravity (Gsb):</label>
+                    <input type="number" id="defaultAggSG" min="2.0" max="3.0" step="0.01" value="2.65">
+                    <span class="hint">Default: 2.65 (used when per-material Gsb is empty)</span>
+                </div>
+                <p class="note">Note: Volumetrics (Va, VMA, VFA) will be computed using these values if provided; otherwise marked as N/A.</p>
+            </details>
+        </section>
+
+        <section id="materials-section">
+            <h2>Materials</h2>
+            <div class="table-container">
+                <table id="materialsTable">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Name</th>
+                            <th>Cost ($/t)</th>
+                            <th class="rap-only">RAP Binder %</th>
+                            <th class="sg-cell">Bulk SG (Gsb)</th>
+                            <!-- Sieve columns will be dynamically added by JavaScript -->
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Material rows will be added dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="button-group">
+                <button id="addAggBtn" class="secondary-btn">Add Aggregate</button>
+                <button id="addRapBtn" class="secondary-btn">Add RAP</button>
+                <button id="addBinderBtn" class="secondary-btn">Add Binder</button>
+            </div>
+        </section>
+
+        <section id="actions-section">
+            <button id="solveBtn" class="primary-btn">Solve Optimisation</button>
+            <div id="constraintStatus" class="status-message"></div>
+        </section>
+
+        <section id="results-section" class="hidden">
+            <h2>Results</h2>
+            
+            <div id="resultsFormula">
+                <h3>Optimal Mix Formula</h3>
+                <div class="table-container">
+                    <table id="formulaTable">
+                        <thead>
+                            <tr>
+                                <th>Material</th>
+                                <th>Type</th>
+                                <th>Percent of Mix</th>
+                                <th>Cost Contribution ($/t)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Results will be added dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div id="resultsCost">
+                <h3>Cost Summary</h3>
+                <p>Total Cost: <span id="totalCost">$0.00</span> per tonne</p>
+            </div>
+            
+            <div id="resultsCompliance">
+                <h3>Compliance Summary</h3>
+                <ul id="complianceList">
+                    <!-- Compliance items will be added dynamically -->
+                </ul>
+            </div>
+            
+            <div id="resultsVolumetrics">
+                <h3>Volumetric Results</h3>
+                <div class="table-container">
+                    <table id="volumetricsTable">
+                        <thead>
+                            <tr>
+                                <th>Property</th>
+                                <th>Value</th>
+                                <th>Specification</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Air Voids (Va)</td>
+                                <td id="airVoids">N/A</td>
+                                <td>3.0 - 5.0%</td>
+                                <td id="airVoidsStatus">N/A</td>
+                            </tr>
+                            <tr>
+                                <td>Voids in Mineral Aggregate (VMA)</td>
+                                <td id="vma">N/A</td>
+                                <td>≥ 14.0%</td>
+                                <td id="vmaStatus">N/A</td>
+                            </tr>
+                            <tr>
+                                <td>Voids Filled with Asphalt (VFA)</td>
+                                <td id="vfa">N/A</td>
+                                <td>65 - 80%</td>
+                                <td id="vfaStatus">N/A</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="note" id="volumetricsNote">Note: Volumetric calculations require Gmb input.</p>
+            </div>
+            
+            <div id="resultsGradation">
+                <h3>Gradation</h3>
+                <div class="chart-container">
+                    <canvas id="gradationChart"></canvas>
+                </div>
+                <div class="table-container">
+                    <table id="gradationTable">
+                        <thead>
+                            <tr>
+                                <th>Sieve Size (mm)</th>
+                                <th>Lower Limit (%)</th>
+                                <th>Combined Passing (%)</th>
+                                <th>Upper Limit (%)</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Gradation results will be added dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>For MVP demonstration only. Verify DGA14 envelope values against latest TfNSW R116.</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
