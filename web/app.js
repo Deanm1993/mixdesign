@@ -667,6 +667,10 @@ function updateGradationTable(gradation) {
 
 // Update gradation chart
 function updateGradationChart(gradation) {
+    if (typeof Chart === 'undefined') {
+        console.warn('Chart.js not loaded; skipping chart rendering.');
+        return;
+    }
     const ctx = document.getElementById('gradationChart').getContext('2d');
     
     // Destroy existing chart if it exists
@@ -954,3 +958,4 @@ async function initialize() {
 
 // Start the application when the DOM is loaded
 document.addEventListener('DOMContentLoaded', initialize);
+
